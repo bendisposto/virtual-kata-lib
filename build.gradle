@@ -61,8 +61,8 @@ if (project.hasProperty('ossrhUsername') && project.hasProperty('ossrhPassword')
 					}
 
 					scm {
-						connection 'scm:git:git://github.com/bendisposto/probparsers.git'
-						developerConnection 'scm:git:git@github.com:bendisposto/probparsers.git'
+						connection 'scm:git:git://github.com/bendisposto/virtual-kata-lib.git'
+						developerConnection 'scm:git:git@github.com:bendisposto/virtual-kata-lib.git'
 						url 'https://github.com/bendisposto/virtual-kata-lib'
 					}
 
