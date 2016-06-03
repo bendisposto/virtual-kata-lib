@@ -7,7 +7,7 @@ The library is used to compile Strings containing Java source code and run   JUn
 ## Maven
     <dependency>
        <groupId>de.hhu.stups</groupId>
-       <artifactId>vk.core</artifactId>
+       <artifactId>virtual-kata-lib</artifactId>
        <version>1.0.0</version>
     </dependency>
 
