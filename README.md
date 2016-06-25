@@ -8,10 +8,15 @@ The library is used to compile Strings containing Java source code and run   JUn
     <dependency>
        <groupId>de.hhu.stups</groupId>
        <artifactId>virtual-kata-lib</artifactId>
-       <version>1.0.0</version>
+       <version>1.0.1</version>
     </dependency>
 
 ## Building
 
 - Library: ```gradle build```
 - JavaDoc: ```gradle javadoc```
+
+## Changes
+
+- Version 1.0.1 (25/06/16)
+Improved error message when used with a plain JRE instead of a JDK.
