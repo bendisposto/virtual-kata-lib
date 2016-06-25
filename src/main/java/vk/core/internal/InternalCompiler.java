@@ -36,14 +36,18 @@ public class InternalCompiler implements JavaStringCompiler {
 
 	private HashMap<String, CompilationUnit> compilationUnits = new HashMap<>();
 
-	private final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+	private final JavaCompiler compiler;
 	private final JUnitCore junit = new JUnitCore();
 	InternalResult result = new InternalResult();
 	private boolean compilerCalled = false;
 	private CompilationUnit[] cus;
 
 	public InternalCompiler(CompilationUnit[] cus) {
+		compiler = ToolProvider.getSystemJavaCompiler();
 		this.cus = cus;
+		if (compiler == null) {
+			throw new IllegalStateException("The compiler is only present in the JDK.");
+		}
 	}
 
 	@Override
