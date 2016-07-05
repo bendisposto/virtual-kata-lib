@@ -6,12 +6,7 @@ import java.util.Collection;
 public interface CompilerResult {
 
 	/**
-	 * The method's name is misleading. It should have been named
-	 * hasNoCompileErrors. We will keep the name though because changing it will
-	 * break the clients.
-	 * 
-	 * @return true, if and only if the compilation process produced no error
-	 *         messages
+	 * @return true, if and only if the compilation process produced error messages
 	 */
 	boolean hasCompileErrors();
 
