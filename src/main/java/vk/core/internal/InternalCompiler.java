@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,6 +31,8 @@ import vk.core.api.JavaStringCompiler;
 import vk.core.api.TestResult;
 
 public class InternalCompiler implements JavaStringCompiler {
+
+	Random rand = new Random();
 
 	private HashMap<URI, CompilationUnit> backwardResolver = new HashMap<>();
 	private HashMap<CompilationUnit, File> forwardResolver = new HashMap<>();
@@ -55,15 +58,19 @@ public class InternalCompiler implements JavaStringCompiler {
 		prepareCompiler();
 		try {
 			Path tempDirectory = Files.createTempDirectory(null);
-			saveAllCompilationUnits(tempDirectory);
+			String pckage = "vkcoretemp" + rand.nextInt(1_000_000);
+			Path resolve = tempDirectory.resolve(pckage);
+			Files.createDirectory(resolve);
+			saveAllCompilationUnits(resolve, pckage);
 			long start = System.currentTimeMillis();
 			compileAllUnits();
 			long end = System.currentTimeMillis();
 			result.setCompileTime(start, end);
 			compilerCalled = true;
 			if (!result.hasCompileErrors())
-				runAllTests(tempDirectory);
-			recursivlyDeleteTempFolder(tempDirectory);
+				runAllTests(tempDirectory,pckage);
+			recursivlyDeleteTempFolder(resolve);
+			Files.delete(tempDirectory);
 		} catch (IOException e) {
 			throw new InternalCompilerException(
 					"Problem closing FileManager inside the compiler. This is most likely a bug in the compiler.", e);
@@ -94,8 +101,8 @@ public class InternalCompiler implements JavaStringCompiler {
 		return compilationUnits.get(name);
 	}
 
-	private void runAllTests(Path tempDirectory) {
-		Class<?>[] tests = loadTests(tempDirectory);
+	private void runAllTests(Path tempDirectory, String pckge) {
+		Class<?>[] tests = loadTests(tempDirectory, pckge);
 		Result run = junit.run(tests);
 		result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
 				run.getRunTime()));
@@ -103,7 +110,7 @@ public class InternalCompiler implements JavaStringCompiler {
 
 	}
 
-	private Class<?>[] loadTests(Path dir) {
+	private Class<?>[] loadTests(Path dir, String pckge) {
 		List<Class<?>> testClasses = new ArrayList<>();
 
 		URL url;
@@ -119,7 +126,7 @@ public class InternalCompiler implements JavaStringCompiler {
 			for (CompilationUnit cu : compilationUnits.values()) {
 				Class<?> loadedClass;
 				try {
-					loadedClass = cl.loadClass(cu.getClassName());
+					loadedClass = cl.loadClass(pckge+"."+cu.getClassName());
 				} catch (ClassNotFoundException e) {
 					// if nobody deleted the class files and compilation worked
 					// without errors this should not happen
@@ -181,7 +188,9 @@ public class InternalCompiler implements JavaStringCompiler {
 
 			List<Diagnostic<? extends JavaFileObject>> results = diagnosticsCollector.getDiagnostics();
 			for (Diagnostic<? extends JavaFileObject> r : results) {
-				CompilationUnit cu = backwardResolver.get(r.getSource().toUri());
+				JavaFileObject source = r.getSource();
+				URI uri = source.toUri();
+				CompilationUnit cu = backwardResolver.get(uri);
 				result.addProblem(cu, r);
 			}
 
@@ -202,17 +211,19 @@ public class InternalCompiler implements JavaStringCompiler {
 		}
 	}
 
-	private void saveAllCompilationUnits(Path tempDirectory) {
+	private void saveAllCompilationUnits(Path tempDirectory, String pckage) {
 		for (CompilationUnit unit : compilationUnits.values()) {
-			saveCompilationUnitToFolder(tempDirectory, unit);
+			saveCompilationUnitToFolder(tempDirectory, pckage, unit);
 		}
 	}
 
-	private void saveCompilationUnitToFolder(Path folder, CompilationUnit cu) {
+	private void saveCompilationUnitToFolder(Path folder, String pckage, CompilationUnit cu) {
 		Path path = folder.resolve(cu.getSourceFile());
 		forwardResolver.put(cu, path.toFile());
+
 		try {
-			Files.write(path, cu.getClassContent().getBytes());
+			String classContent = "package " + pckage + ";\n" + cu.getClassContent();
+			Files.write(path, classContent.getBytes());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

@@ -19,8 +19,8 @@ public class InternalCompileProblem implements CompileError {
 		message = r.getMessage(null);
 		lineNumber = r.getLineNumber();
 		columnNumber = r.getColumnNumber();
-		String[] lines = compilationUnit.getClassContent().split("\\n");
-		errorLine = lines[(int) (lineNumber - 1)];
+		String[] lines = compilationUnit.getClassContent().split("\n");
+		errorLine = lines[(int) (lineNumber - 2)];
 	}
 
 	@Override
