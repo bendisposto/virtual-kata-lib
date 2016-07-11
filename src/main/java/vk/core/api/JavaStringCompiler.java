@@ -20,7 +20,7 @@ public interface JavaStringCompiler {
 
 	/**
 	 * Get the information related to testing (i.e., failures and statistics).
-	 * @return result of all tests
+	 * @return result of all tests or null if the code could not be compiled
 	 * @see TestResult
 	 */
 	TestResult getTestResult();
