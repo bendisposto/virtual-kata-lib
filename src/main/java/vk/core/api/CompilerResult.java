@@ -2,11 +2,13 @@ package vk.core.api;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 
 public interface CompilerResult {
 
 	/**
-	 * @return true, if and only if the compilation process produced error messages
+	 * @return true, if and only if the compilation process produced error
+	 *         messages
 	 */
 	boolean hasCompileErrors();
 
@@ -21,5 +23,7 @@ public interface CompilerResult {
 	 * @return all errors for that compilation unit
 	 */
 	Collection<CompileError> getCompilerErrorsForCompilationUnit(CompilationUnit cu);
+
+	Map<CompilationUnit, Collection<CompileError>> getCompilerErrors();
 
 }

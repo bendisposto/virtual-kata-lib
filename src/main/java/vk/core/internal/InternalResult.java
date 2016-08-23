@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
@@ -99,6 +100,11 @@ public class InternalResult implements CompilerResult, TestResult {
 
 	public void setCompileErrors(boolean b) {
 		this.compileErrors = b;
+	}
+
+	@Override
+	public Map<CompilationUnit, Collection<CompileError>> getCompilerErrors() {
+		return Collections.unmodifiableMap(errors);
 	}
 
 }
