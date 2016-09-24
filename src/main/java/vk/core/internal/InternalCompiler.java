@@ -9,6 +9,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -25,214 +26,294 @@ import javax.tools.ToolProvider;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 
+import com.puppycrawl.tools.checkstyle.Checker;
+import com.puppycrawl.tools.checkstyle.ConfigurationLoader;
+import com.puppycrawl.tools.checkstyle.PropertiesExpander;
+import com.puppycrawl.tools.checkstyle.api.AuditEvent;
+import com.puppycrawl.tools.checkstyle.api.AuditListener;
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
+import com.puppycrawl.tools.checkstyle.api.Configuration;
+
 import vk.core.api.CompilationUnit;
+import vk.core.api.CompileError;
 import vk.core.api.CompilerResult;
 import vk.core.api.JavaStringCompiler;
 import vk.core.api.TestResult;
 
 public class InternalCompiler implements JavaStringCompiler {
 
-	Random rand = new Random();
+    Random rand = new Random();
 
-	private HashMap<URI, CompilationUnit> backwardResolver = new HashMap<>();
-	private HashMap<CompilationUnit, File> forwardResolver = new HashMap<>();
+    private HashMap<URI, CompilationUnit> backwardResolver = new HashMap<>();
+    private HashMap<File, CompilationUnit> backwardFileResolver = new HashMap<>();
+    private HashMap<CompilationUnit, File> forwardResolver = new HashMap<>();
 
-	private HashMap<String, CompilationUnit> compilationUnits = new HashMap<>();
+    private HashMap<String, CompilationUnit> compilationUnits = new HashMap<>();
 
-	private final JavaCompiler compiler;
-	private final JUnitCore junit = new JUnitCore();
-	InternalResult result = new InternalResult();
-	private boolean compilerCalled = false;
-	private CompilationUnit[] cus;
+    private final JavaCompiler compiler;
+    private final JUnitCore junit = new JUnitCore();
+    InternalResult result = new InternalResult();
+    private boolean compilerCalled = false;
+    private CompilationUnit[] cus;
 
-	public InternalCompiler(CompilationUnit[] cus) {
-		compiler = ToolProvider.getSystemJavaCompiler();
-		this.cus = cus;
-		if (compiler == null) {
-			throw new IllegalStateException("The compiler is only present in the JDK.");
-		}
-	}
+    public InternalCompiler(CompilationUnit[] cus) {
+        compiler = ToolProvider.getSystemJavaCompiler();
+        this.cus = cus;
+        if (compiler == null) {
+            throw new IllegalStateException("The compiler is only present in the JDK.");
+        }
+    }
 
-	@Override
-	public synchronized void compileAndRunTests() {
-		prepareCompiler();
-		try {
-			Path tempDirectory = Files.createTempDirectory(null);
-			String pckage = "vkcoretemp" + rand.nextInt(1_000_000);
-			Path resolve = tempDirectory.resolve(pckage);
-			Files.createDirectory(resolve);
-			saveAllCompilationUnits(resolve, pckage);
-			long start = System.currentTimeMillis();
-			compileAllUnits();
-			long end = System.currentTimeMillis();
-			result.setCompileTime(start, end);
-			compilerCalled = true;
-			if (!result.hasCompileErrors())
-				runAllTests(tempDirectory,pckage);
-			recursivlyDeleteTempFolder(resolve);
-			Files.delete(tempDirectory);
-		} catch (IOException e) {
-			throw new InternalCompilerException(
-					"Problem closing FileManager inside the compiler. This is most likely a bug in the compiler.", e);
-		}
-	}
+    @Override
+    public synchronized void compileAndRunTests() {
+        prepareCompiler();
+        try {
+            Path tempDirectory = Files.createTempDirectory(null);
+            saveAllCompilationUnits(tempDirectory);
+            long start = System.currentTimeMillis();
+            compileAllUnits();
+            long end = System.currentTimeMillis();
+            result.setCompileTime(start, end);
+            compilerCalled = true;
+            if (!result.hasCompileErrors()) {
+                runAllTests(tempDirectory);
+                runCheckStyle(tempDirectory);
+            }
+            recursivlyDeleteTempFolder(tempDirectory);
+        } catch (IOException e) {
+            throw new InternalCompilerException(
+                    "Problem closing FileManager inside the compiler. This is most likely a bug in the compiler.", e);
+        }
+    }
 
-	@Override
-	public synchronized CompilerResult getCompilerResult() {
-		if (!compilerCalled)
-			throw new IllegalStateException("You need to call compileAndRunTests before you can get a result");
-		return result;
-	}
+    @Override
+    public synchronized CompilerResult getCompilerResult() {
+        if (!compilerCalled)
+            throw new IllegalStateException("You need to call compileAndRunTests before you can get a result");
+        return result;
+    }
 
-	@Override
-	public synchronized TestResult getTestResult() {
-		if (!compilerCalled)
-			throw new IllegalStateException("You need to call compileAndRunTests before you can get a result");
-		return result.hasCompileErrors() ? null : result;
-	}
+    @Override
+    public synchronized TestResult getTestResult() {
+        if (!compilerCalled)
+            throw new IllegalStateException("You need to call compileAndRunTests before you can get a result");
+        return result.hasCompileErrors() ? null : result;
+    }
 
-	@Override
-	public Set<String> getAllCompilationUnitNames() {
-		return compilationUnits.keySet();
-	}
+    @Override
+    public Set<String> getAllCompilationUnitNames() {
+        return compilationUnits.keySet();
+    }
 
-	@Override
-	public CompilationUnit getCompilationUnitByName(String name) {
-		return compilationUnits.get(name);
-	}
+    @Override
+    public CompilationUnit getCompilationUnitByName(String name) {
+        return compilationUnits.get(name);
+    }
 
-	private void runAllTests(Path tempDirectory, String pckge) {
-		Class<?>[] tests = loadTests(tempDirectory, pckge);
-		Result run = junit.run(tests);
-		result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
-				run.getRunTime()));
-		result.setFailures(run.getFailures().stream().map(f -> new InternalFailure(f)).collect(Collectors.toList()));
+    private void runAllTests(Path tempDirectory) {
+        Class<?>[] tests = loadTests(tempDirectory);
+        Result run = junit.run(tests);
+        result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
+                run.getRunTime()));
+        result.setFailures(run.getFailures().stream().map(f -> new InternalFailure(f)).collect(Collectors.toList()));
+    }
 
-	}
+    @SuppressWarnings("deprecation")
+    private void runCheckStyle(Path tempDirectory) {
+        Checker checker = new Checker();
 
-	private Class<?>[] loadTests(Path dir, String pckge) {
-		List<Class<?>> testClasses = new ArrayList<>();
+        try {
+            Configuration conf = ConfigurationLoader.loadConfiguration(
+                    getClass().getClassLoader().getResourceAsStream("sun_checks.xml"),
+                    new PropertiesExpander(System.getProperties()), false);
+            ClassLoader moduleClassLoader = this.getClass().getClassLoader();
+            checker.setModuleClassLoader(moduleClassLoader);
+            checker.configure(conf);
 
-		URL url;
-		try {
-			url = dir.toUri().toURL();
-		} catch (MalformedURLException e1) {
-			// this shouldn't be possible
-			throw new RuntimeException("Internal erorror while loading classes from " + dir, e1);
-		}
-		URL[] urls = new URL[] { url };
-		try (URLClassLoader cl = new URLClassLoader(urls, this.getClass().getClassLoader(), null)) {
+        } catch (CheckstyleException e1) {
+            e1.printStackTrace();
+        }
 
-			for (CompilationUnit cu : compilationUnits.values()) {
-				Class<?> loadedClass;
-				try {
-					loadedClass = cl.loadClass(pckge+"."+cu.getClassName());
-				} catch (ClassNotFoundException e) {
-					// if nobody deleted the class files and compilation worked
-					// without errors this should not happen
-					throw new RuntimeException("Could not load class " + cu.getClassName());
-				}
-				if (cu.isATest())
-					testClasses.add(loadedClass);
-			}
-		} catch (IOException e1) {
-			throw new RuntimeException("Problem closing Classloader", e1);
-		}
-		return testClasses.toArray(new Class[0]);
-	}
+        List<File> files = new ArrayList<>();
+        for (CompilationUnit cu : compilationUnits.values()) {
+            Path sourceFile = tempDirectory.resolve(cu.getClassName() + ".java");
+            File file = sourceFile.toFile();
+            files.add(file);
+        }
+        try {
+            checker.addListener(new AuditListener() {
 
-	private void prepareCompiler() {
+                @Override
+                public void fileStarted(AuditEvent event) {
+                }
 
-		compilationUnits.clear();
+                @Override
+                public void fileFinished(AuditEvent event) {
+                }
 
-		for (CompilationUnit cu : cus) {
-			String className = cu.getClassName();
-			if (compilationUnits.containsKey(className))
-				throw new IllegalArgumentException("Duplicate class names are not allowed.");
-			compilationUnits.put(className, cu);
+                @Override
+                public void auditStarted(AuditEvent event) {
 
-		}
+                }
 
-		this.result = new InternalResult();
-		backwardResolver.clear();
-		forwardResolver.clear();
-	}
+                @Override
+                public void auditFinished(AuditEvent event) {
 
-	private void recursivlyDeleteTempFolder(Path path) throws IOException {
+                }
 
-		Files.list(path).forEach(file -> {
-			try {
-				Files.delete(file);
-			} catch (Exception e) {
-				// ignore
-			}
-		});
+                @Override
+                public void addException(AuditEvent event, Throwable throwable) {
 
-		Files.delete(path);
-		if (Files.exists(path)) {
-			throw new IOException("Problem deleting compilation folder. Please remove the folder manually. Location: "
-					+ path.toString());
-		}
-	}
+                }
 
-	private void compileAllUnits() {
+                @Override
+                public void addError(AuditEvent event) {
+                    File f = new File(event.getFileName());
+                    int line = event.getLine();
+                    int column = event.getColumn();
+                    String message = event.getMessage();
+                    CompilationUnit cu = backwardFileResolver.get(f);
+                    result.addStyleError(cu, new CheckStyleError(line, column, message, cu));
+                }
+            });
+            checker.process(files);
+            Collection<CompileError> styleErrors = result.getStyleErrors();
+            for (CompileError error : styleErrors) {
+                String className = error.getCompilationUnit().getClassName();
+                System.out.println(className + ": " +
+                        error.getMessage() + "(" + error.getLineNumber() + "," + error.getColumnNumber() + ")");
+            }
 
-		DiagnosticCollector<JavaFileObject> diagnosticsCollector = new DiagnosticCollector<JavaFileObject>();
-		try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnosticsCollector, null, null)) {
+        } catch (CheckstyleException e) {
+            e.printStackTrace();
+        }
+    }
 
-			populateBackwardResolver(fileManager);
-			Iterable<? extends JavaFileObject> fileObjects = fileManager
-					.getJavaFileObjectsFromFiles(forwardResolver.values());
+    private Class<?>[] loadTests(Path dir) {
+        List<Class<?>> testClasses = new ArrayList<>();
 
-			boolean compiledWithoutErrors = runCompiler(compiler, diagnosticsCollector, fileManager, fileObjects);
+        URL url;
+        try {
+            url = dir.toUri().toURL();
+        } catch (MalformedURLException e1) {
+            // this shouldn't be possible
+            throw new RuntimeException("Internal erorror while loading classes from " + dir, e1);
+        }
+        URL[] urls = new URL[] { url };
+        try (URLClassLoader cl = new URLClassLoader(urls, this.getClass().getClassLoader(), null)) {
 
-			List<Diagnostic<? extends JavaFileObject>> results = diagnosticsCollector.getDiagnostics();
-			for (Diagnostic<? extends JavaFileObject> r : results) {
-				JavaFileObject source = r.getSource();
-				URI uri = source.toUri();
-				CompilationUnit cu = backwardResolver.get(uri);
-				result.addProblem(cu, r);
-			}
+            for (CompilationUnit cu : compilationUnits.values()) {
+                Class<?> loadedClass;
+                try {
+                    loadedClass = cl.loadClass(cu.getClassName());
+                } catch (ClassNotFoundException e) {
+                    // if nobody deleted the class files and compilation worked
+                    // without errors this should not happen
+                    throw new RuntimeException("Could not load class " + cu.getClassName());
+                }
+                if (cu.isATest())
+                    testClasses.add(loadedClass);
+            }
+        } catch (IOException e1) {
+            throw new RuntimeException("Problem closing Classloader", e1);
+        }
+        return testClasses.toArray(new Class[0]);
+    }
 
-			if (!compiledWithoutErrors) {
-				result.setCompileErrors(true);
-			}
-		} catch (IOException e) {
-			throw new RuntimeException("Problem closing FileManager", e);
-		}
+    private void prepareCompiler() {
 
-	}
+        compilationUnits.clear();
 
-	private void populateBackwardResolver(StandardJavaFileManager fileManager) {
-		for (CompilationUnit compilationUnit : compilationUnits.values()) {
-			File file = forwardResolver.get(compilationUnit);
-			JavaFileObject fileObject = fileManager.getJavaFileObjects(file).iterator().next();
-			backwardResolver.put(fileObject.toUri(), compilationUnit);
-		}
-	}
+        for (CompilationUnit cu : cus) {
+            String className = cu.getClassName();
+            if (compilationUnits.containsKey(className))
+                throw new IllegalArgumentException("Duplicate class names are not allowed.");
+            compilationUnits.put(className, cu);
 
-	private void saveAllCompilationUnits(Path tempDirectory, String pckage) {
-		for (CompilationUnit unit : compilationUnits.values()) {
-			saveCompilationUnitToFolder(tempDirectory, pckage, unit);
-		}
-	}
+        }
 
-	private void saveCompilationUnitToFolder(Path folder, String pckage, CompilationUnit cu) {
-		Path path = folder.resolve(cu.getSourceFile());
-		forwardResolver.put(cu, path.toFile());
+        this.result = new InternalResult();
+        backwardResolver.clear();
+        backwardFileResolver.clear();
+        forwardResolver.clear();
+    }
 
-		try {
-			String classContent = "package " + pckage + ";\n" + cu.getClassContent();
-			Files.write(path, classContent.getBytes());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+    private void recursivlyDeleteTempFolder(Path path) throws IOException {
 
-	}
+        Files.list(path).forEach(file -> {
+            try {
+                Files.delete(file);
+            } catch (Exception e) {
+                // ignore
+            }
+        });
 
-	private boolean runCompiler(JavaCompiler compiler, DiagnosticCollector<JavaFileObject> diagnostics,
-			StandardJavaFileManager fileManager, Iterable<? extends JavaFileObject> fileObjects) {
-		return compiler.getTask(null, fileManager, diagnostics, null, null, fileObjects).call();
-	}
+        Files.delete(path);
+        if (Files.exists(path)) {
+            throw new IOException("Problem deleting compilation folder. Please remove the folder manually. Location: "
+                    + path.toString());
+        }
+    }
+
+    private void compileAllUnits() {
+
+        DiagnosticCollector<JavaFileObject> diagnosticsCollector = new DiagnosticCollector<JavaFileObject>();
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnosticsCollector, null, null)) {
+
+            populateBackwardResolver(fileManager);
+            Iterable<? extends JavaFileObject> fileObjects = fileManager
+                    .getJavaFileObjectsFromFiles(forwardResolver.values());
+
+            boolean compiledWithoutErrors = runCompiler(compiler, diagnosticsCollector, fileManager, fileObjects);
+
+            List<Diagnostic<? extends JavaFileObject>> results = diagnosticsCollector.getDiagnostics();
+            for (Diagnostic<? extends JavaFileObject> r : results) {
+                JavaFileObject source = r.getSource();
+                URI uri = source.toUri();
+                CompilationUnit cu = backwardResolver.get(uri);
+                result.addProblem(cu, r);
+            }
+
+            if (!compiledWithoutErrors) {
+                result.setCompileErrors(true);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Problem closing FileManager", e);
+        }
+
+    }
+
+    private void populateBackwardResolver(StandardJavaFileManager fileManager) {
+        for (CompilationUnit compilationUnit : compilationUnits.values()) {
+            File file = forwardResolver.get(compilationUnit);
+            JavaFileObject fileObject = fileManager.getJavaFileObjects(file).iterator().next();
+            backwardResolver.put(fileObject.toUri(), compilationUnit);
+            backwardFileResolver.put(file, compilationUnit);
+        }
+    }
+
+    private void saveAllCompilationUnits(Path tempDirectory) {
+        for (CompilationUnit unit : compilationUnits.values()) {
+            saveCompilationUnitToFolder(tempDirectory, unit);
+        }
+    }
+
+    private void saveCompilationUnitToFolder(Path folder, CompilationUnit cu) {
+        Path path = folder.resolve(cu.getSourceFile());
+        forwardResolver.put(cu, path.toFile());
+
+        try {
+            String classContent = cu.getClassContent();
+            Files.write(path, classContent.getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private boolean runCompiler(JavaCompiler compiler, DiagnosticCollector<JavaFileObject> diagnostics,
+            StandardJavaFileManager fileManager, Iterable<? extends JavaFileObject> fileObjects) {
+        return compiler.getTask(null, fileManager, diagnostics, null, null, fileObjects).call();
+    }
 
 }
