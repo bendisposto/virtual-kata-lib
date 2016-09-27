@@ -39,7 +39,8 @@
 		<module name="MemberName">
 			<message key="name.invalidPattern"
 				value="Name ''{0}'' does not conform with the style guide. Attribute names should start with a lower case letter." />
-	
+		</module>
+
 		<module name="ParameterName">
 			<message key="name.invalidPattern"
 				value="Name ''{0}'' does not conform with the style guide. Parameter names should start with a lower case letter." />
