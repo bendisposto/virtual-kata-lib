@@ -274,9 +274,6 @@ public class InternalCompiler implements JavaStringCompiler {
                 result.addProblem(cu, r);
             }
 
-            if (!compiledWithoutErrors) {
-                result.setCompileErrors(true);
-            }
         } catch (IOException e) {
             throw new RuntimeException("Problem closing FileManager", e);
         }

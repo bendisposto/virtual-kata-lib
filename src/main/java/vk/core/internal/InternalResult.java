@@ -24,7 +24,6 @@ public class InternalResult implements CompilerResult, TestResult {
     private InternalStatistics stats;
     private long compiletime;
     private List<TestFailure> failures;
-    private boolean compileErrors;
 
     void addStyleError(CompilationUnit cu, CheckStyleError problem) {
         checkStyleProblems.add(problem);
@@ -82,11 +81,7 @@ public class InternalResult implements CompilerResult, TestResult {
 
     @Override
     public boolean hasCompileErrors() {
-        return this.compileErrors;
-    }
-
-    public void setCompileErrors(boolean b) {
-        this.compileErrors = b;
+        return errors.size() + checkStyleProblems.size() > 0;
     }
 
     @Override
