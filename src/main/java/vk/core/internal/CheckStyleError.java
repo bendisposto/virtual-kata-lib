@@ -42,4 +42,16 @@ public class CheckStyleError implements CompileError {
         return compilationUnit;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(compilationUnit.getClassName());
+        sb.append(".java:");
+        sb.append(getLineNumber());
+        sb.append(":error:");
+        sb.append(getMessage());
+        sb.append(System.lineSeparator());
+        return sb.toString();
+    }
+
 }
