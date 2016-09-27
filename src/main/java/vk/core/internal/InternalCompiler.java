@@ -126,7 +126,7 @@ public class InternalCompiler implements JavaStringCompiler {
 
         try {
             Configuration conf = ConfigurationLoader.loadConfiguration(
-                    getClass().getClassLoader().getResourceAsStream("sun_checks.xml"),
+                    getClass().getClassLoader().getResourceAsStream("default.xml"),
                     new PropertiesExpander(System.getProperties()), false);
             ClassLoader moduleClassLoader = this.getClass().getClassLoader();
             checker.setModuleClassLoader(moduleClassLoader);

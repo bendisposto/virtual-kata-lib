@@ -6,10 +6,7 @@
 
 <module name="Checker">
 
-
-
 	<module name="TreeWalker">
-
 		<module name="Indentation">
 			<message key="indentation.error" value="Wrong Indentation! Should be {2}, but was {1}." />
 			<message key="indentation.error.multi"
@@ -29,11 +26,30 @@
 
 		<module name="LocalVariableName">
 			<property name="allowOneCharVarInForLoop" value="true" />
+			<message key="name.invalidPattern"
+				value="Name ''{0}'' does not conform with the style guide. Variable names should start with a lower case letter." />
 		</module>
 
 		<module name="MethodName">
 			<property name="format" value="^[a-z][a-zA-Z0-9_]*$" />
+			<message key="name.invalidPattern"
+				value="Name ''{0}'' does not conform with the style guide. Method names should start with a lower case letter." />
 		</module>
+
+		<module name="MemberName">
+			<message key="name.invalidPattern"
+				value="Name ''{0}'' does not conform with the style guide. Attribute names should start with a lower case letter." />
+	
+		<module name="ParameterName">
+			<message key="name.invalidPattern"
+				value="Name ''{0}'' does not conform with the style guide. Parameter names should start with a lower case letter." />
+		</module>
+
+		<module name="TypeName">
+			<message key="name.invalidPattern"
+				value="Name ''{0}'' does not conform with the style guide. Class names should start with a upper case letter." />
+		</module>
+
 
 	</module>
 
