@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,6 +34,7 @@ import com.puppycrawl.tools.checkstyle.api.AuditEvent;
 import com.puppycrawl.tools.checkstyle.api.AuditListener;
 import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
 import com.puppycrawl.tools.checkstyle.api.Configuration;
+import com.puppycrawl.tools.checkstyle.api.LocalizedMessage;
 
 import vk.core.api.CompilationUnit;
 import vk.core.api.CompileError;
@@ -133,6 +135,7 @@ public class InternalCompiler implements JavaStringCompiler {
         } catch (CheckstyleException e1) {
             e1.printStackTrace();
         }
+        LocalizedMessage.setLocale(Locale.ENGLISH);
 
         List<File> files = new ArrayList<>();
         for (CompilationUnit cu : compilationUnits.values()) {
@@ -171,6 +174,7 @@ public class InternalCompiler implements JavaStringCompiler {
                     File f = new File(event.getFileName());
                     int line = event.getLine();
                     int column = event.getColumn();
+
                     String message = event.getMessage();
                     CompilationUnit cu = backwardFileResolver.get(f);
                     result.addStyleError(cu, new CheckStyleError(line, column, message, cu));

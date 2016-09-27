@@ -6,12 +6,27 @@
 
 <module name="Checker">
 
-    <module name="TreeWalker">
-    
-        <module name="Indentation"/>
-        <module name="NeedBraces"/>
-        
-   
-    </module>
+
+
+	<module name="TreeWalker">
+
+		<module name="Indentation">
+			<message key="indentation.error" value="Wrong Indentation! Should be {2}, but was {1}." />
+			<message key="indentation.error.multi"
+				value="Wrong Indentation! Should be one of {2}, but was {1}." />
+
+			<message key="indentation.child.error" value="Wrong Indentation! Should be {2}, but was {1}." />
+			<message key="indentation.child.error.multi"
+				value="Wrong Indentation! Should be one of {2}, but was {1}." />
+
+			<message key="comments.indentation.single"
+				value="Wrong Indentation of comment! Should be one of {2}, but was {1}. {0}" />
+			<message key="comments.indentation.block"
+				value="Wrong Indentation of comment! Should be one of {2}, but was {1}. {0}" />
+		</module>
+		<module name="NeedBraces" />
+
+
+	</module>
 
 </module>
