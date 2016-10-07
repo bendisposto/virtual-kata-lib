@@ -1,11 +1,14 @@
 package vk.core.internal;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -114,7 +117,24 @@ public class InternalCompiler implements JavaStringCompiler {
 
     private void runAllTests(Path tempDirectory) {
         Class<?>[] tests = loadTests(tempDirectory);
+
+        // Redirect output to a String
+        PrintStream outOrg = System.out;
+        PrintStream errOrg = System.err;
+        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(outStream);
+        System.setOut(ps);
+        System.setErr(ps);
         Result run = junit.run(tests);
+
+        // Restore output
+        System.setOut(outOrg);
+        System.setErr(errOrg);
+
+        String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
+
+        result.setOutput(out);
+
         result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
                 run.getRunTime()));
         result.setFailures(run.getFailures().stream().map(f -> new InternalFailure(f)).collect(Collectors.toList()));
@@ -268,7 +288,7 @@ public class InternalCompiler implements JavaStringCompiler {
             Iterable<? extends JavaFileObject> fileObjects = fileManager
                     .getJavaFileObjectsFromFiles(forwardResolver.values());
 
-            boolean compiledWithoutErrors = runCompiler(compiler, diagnosticsCollector, fileManager, fileObjects);
+            runCompiler(compiler, diagnosticsCollector, fileManager, fileObjects);
 
             List<Diagnostic<? extends JavaFileObject>> results = diagnosticsCollector.getDiagnostics();
             for (Diagnostic<? extends JavaFileObject> r : results) {

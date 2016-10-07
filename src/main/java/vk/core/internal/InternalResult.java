@@ -25,6 +25,8 @@ public class InternalResult implements CompilerResult, TestResult {
     private long compiletime;
     private List<TestFailure> failures;
 
+    private String output;
+
     void addStyleError(CompilationUnit cu, CheckStyleError problem) {
         checkStyleProblems.add(problem);
     }
@@ -92,6 +94,15 @@ public class InternalResult implements CompilerResult, TestResult {
     @Override
     public Collection<CompileError> getStyleErrors() {
         return Collections.unmodifiableCollection(checkStyleProblems);
+    }
+
+    public void setOutput(String output) {
+        this.output = output;
+    }
+
+    @Override
+    public String getOutput() {
+        return output;
     }
 
 }
