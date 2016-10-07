@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.tools.Diagnostic;
+import javax.tools.Diagnostic.Kind;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
@@ -292,10 +293,12 @@ public class InternalCompiler implements JavaStringCompiler {
 
             List<Diagnostic<? extends JavaFileObject>> results = diagnosticsCollector.getDiagnostics();
             for (Diagnostic<? extends JavaFileObject> r : results) {
-                JavaFileObject source = r.getSource();
-                URI uri = source.toUri();
-                CompilationUnit cu = backwardResolver.get(uri);
-                result.addProblem(cu, r);
+                if (r.getKind() == Kind.ERROR) {
+                    JavaFileObject source = r.getSource();
+                    URI uri = source.toUri();
+                    CompilationUnit cu = backwardResolver.get(uri);
+                    result.addProblem(cu, r);
+                }
             }
 
         } catch (IOException e) {
