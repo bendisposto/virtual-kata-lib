@@ -13,11 +13,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import javax.tools.Diagnostic;
@@ -28,8 +35,10 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
+import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 
 import com.puppycrawl.tools.checkstyle.Checker;
 import com.puppycrawl.tools.checkstyle.ConfigurationLoader;
@@ -57,7 +66,6 @@ public class InternalCompiler implements JavaStringCompiler {
     private HashMap<String, CompilationUnit> compilationUnits = new HashMap<>();
 
     private final JavaCompiler compiler;
-    private final JUnitCore junit = new JUnitCore();
     InternalResult result = new InternalResult();
     private boolean compilerCalled = false;
     private CompilationUnit[] cus;
@@ -82,8 +90,9 @@ public class InternalCompiler implements JavaStringCompiler {
             result.setCompileTime(start, end);
             compilerCalled = true;
             if (!result.hasCompileErrors()) {
-                runAllTests(tempDirectory);
                 runCheckStyle(tempDirectory);
+                if (result.getStyleErrors().isEmpty())
+                    runAllTests(tempDirectory);
             }
             recursivlyDeleteTempFolder(tempDirectory);
         } catch (IOException e) {
@@ -126,19 +135,52 @@ public class InternalCompiler implements JavaStringCompiler {
         PrintStream ps = new PrintStream(outStream);
         System.setOut(ps);
         System.setErr(ps);
-        Result run = junit.run(tests);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Result> future = executor.submit(() -> {
+            JUnitCore junit = new JUnitCore();
+            return junit.run(tests);
+        });
 
         // Restore output
         System.setOut(outOrg);
         System.setErr(errOrg);
 
         String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
-
+        System.out.println("GGG");
         result.setOutput(out);
+        try {
+            Result run = future.get(2, TimeUnit.SECONDS);
+            result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
+                    run.getRunTime()));
+            result.setFailures(
+                    run.getFailures().stream().map(f -> new InternalFailure(f)).collect(Collectors.toList()));
+        } catch (TimeoutException e) {
+            result.setStatistics(new InternalStatistics(0, 1, 0, 0));
+            Description desc = Description.createTestDescription("",
+                    "Timeout, probably your test or code contains an infinite loop");
 
-        result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
-                run.getRunTime()));
-        result.setFailures(run.getFailures().stream().map(f -> new InternalFailure(f)).collect(Collectors.toList()));
+            result.setFailures(
+                    Collections.singletonList(new InternalFailure(
+                            new Failure(desc, e))));
+        } catch (InterruptedException e) {
+            result.setStatistics(new InternalStatistics(0, 1, 0, 0));
+            Description desc = Description.createTestDescription("",
+                    "Interrupted, this is an internal error that should not occurr.");
+
+            result.setFailures(
+                    Collections.singletonList(new InternalFailure(
+                            new Failure(desc, e))));
+        } catch (ExecutionException e) {
+            result.setStatistics(new InternalStatistics(0, 1, 0, 0));
+            Description desc = Description.createTestDescription("",
+                    "Interrupted, this is an internal error that should not occurr.");
+
+            result.setFailures(
+                    Collections.singletonList(new InternalFailure(
+                            new Failure(desc, e))));
+        }
+
     }
 
     @SuppressWarnings("deprecation")
