@@ -17,15 +17,15 @@ public class CompilerTests {
             "public class Foo { \n           \\a comment \n                  int x = 0; }",
             false);
     CompilationUnit validClassBar = new CompilationUnit("Bar", "public class Bar { \n"
-            + " public static int fourtyTwo() { \n"
-            + "    return 41 + 1; \n"
-            + " }\n"
+            + "    public static int fourtyTwo() { \n"
+            + "        return 41 + 1; \n"
+            + "    }\n"
             + "}", false);
 
     CompilationUnit validClassFooUsingBar = new CompilationUnit("Foo", "public class Foo { \n"
-            + " public static void print() { \n"
-            + "    System.out.println(Bar.fourtyTwo()); \n"
-            + " }\n"
+            + "    public static void print() { \n"
+            + "        System.out.println(Bar.fourtyTwo()); \n"
+            + "    }\n"
             + "}", false);
 
     CompilationUnit inValidClassFooNameNotMatching = new CompilationUnit("FooX", "public class FooY {}", false);
@@ -40,10 +40,10 @@ public class CompilerTests {
             "import static org.junit.Assert.*;\n"
                     + "import org.junit.Test;\n"
                     + "public class BarTest { \n"
-                    + "@Test\n"
-                    + "public void leTest() { \n "
-                    + "assertEquals(42, Bar.fourtyTwo()); \n"
-                    + "   }\n "
+                    + "    @Test\n"
+                    + "    public void leTest() { \n "
+                    + "       assertEquals(42, Bar.fourtyTwo()); \n"
+                    + "    }\n"
                     + "}",
             true);
 
