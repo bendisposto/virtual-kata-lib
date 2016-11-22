@@ -147,7 +147,6 @@ public class InternalCompiler implements JavaStringCompiler {
         System.setErr(errOrg);
 
         String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
-        System.out.println("GGG");
         result.setOutput(out);
         try {
             Result run = future.get(2, TimeUnit.SECONDS);
