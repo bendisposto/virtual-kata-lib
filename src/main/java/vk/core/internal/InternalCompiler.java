@@ -131,7 +131,7 @@ public class InternalCompiler implements JavaStringCompiler {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        Future<Result> future = executor.submit(() -> {
+        Future<Object[]> future = executor.submit(() -> {
             // Redirect output to a String
             PrintStream outOrg = System.out;
             PrintStream errOrg = System.err;
@@ -143,13 +143,14 @@ public class InternalCompiler implements JavaStringCompiler {
             // Restore output
             System.setOut(outOrg);
             System.setErr(errOrg);
-            return run;
+            String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
+            return new Object[] { run, out };
         });
 
-        String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
-        result.setOutput(out);
         try {
-            Result run = future.get(2, TimeUnit.SECONDS);
+            Object[] r = future.get(2, TimeUnit.SECONDS);
+            result.setOutput((String) r[1]);
+            Result run = (Result) r[0];
             result.setStatistics(new InternalStatistics(run.getRunCount(), run.getFailureCount(), run.getIgnoreCount(),
                     run.getRunTime()));
             result.setFailures(
