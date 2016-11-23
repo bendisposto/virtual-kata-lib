@@ -128,23 +128,23 @@ public class InternalCompiler implements JavaStringCompiler {
     private void runAllTests(Path tempDirectory) {
         Class<?>[] tests = loadTests(tempDirectory);
 
-        // Redirect output to a String
-        PrintStream outOrg = System.out;
-        PrintStream errOrg = System.err;
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(outStream);
-        System.setOut(ps);
-        System.setErr(ps);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<Result> future = executor.submit(() -> {
+            // Redirect output to a String
+            PrintStream outOrg = System.out;
+            PrintStream errOrg = System.err;
+            PrintStream ps = new PrintStream(outStream);
+            System.setOut(ps);
+            System.setErr(ps);
             JUnitCore junit = new JUnitCore();
-            return junit.run(tests);
+            Result run = junit.run(tests);
+            // Restore output
+            System.setOut(outOrg);
+            System.setErr(errOrg);
+            return run;
         });
-
-        // Restore output
-        System.setOut(outOrg);
-        System.setErr(errOrg);
 
         String out = new String(outStream.toByteArray(), StandardCharsets.UTF_8);
         result.setOutput(out);

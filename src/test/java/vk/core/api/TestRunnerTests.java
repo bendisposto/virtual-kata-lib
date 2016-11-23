@@ -21,6 +21,7 @@ public class TestRunnerTests {
                     + "public class BarTest { \n"
                     + "    @Test\n"
                     + "    public void squareOf4_shouldReturn16() { \n"
+                    + "        System.out.println(\"Hello\"); \n"
                     + "        assertEquals(16, Bar.square(4)); \n"
                     + "    }\n"
                     + "}",
@@ -159,6 +160,20 @@ public class TestRunnerTests {
         assertEquals(1, testResult.getNumberOfSuccessfulTests());
         assertEquals(1, testResult.getNumberOfFailedTests());
         assertEquals(1, testResult.getNumberOfIgnoredTests());
+    }
+
+    @Test
+    public void runningTestWithOutput_shouldCaptureOutput() {
+        JavaStringCompiler compiler = CompilerFactory.getCompiler(validClassBar,
+                succeedingTestClassWithSingleTestForBar);
+        compiler.compileAndRunTests();
+        CompilerResult compilerResult = compiler.getCompilerResult();
+        assertFalse(TestHelpers.getErrorMessages(compiler, compilerResult),
+                compilerResult.hasCompileErrors());
+        TestResult testResult = compiler.getTestResult();
+        String output = testResult.getOutput();
+        System.out.println("Captured: '" + output + "'");
+        assertEquals("Hello\n", output);
     }
 
 }
