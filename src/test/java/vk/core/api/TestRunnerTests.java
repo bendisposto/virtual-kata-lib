@@ -93,6 +93,15 @@ public class TestRunnerTests {
             true);
 
     @Test
+    public void emptyClass_shouldProduceAnError() {
+        CompilationUnit cu = new CompilationUnit("Doj", "", true);
+        JavaStringCompiler compiler = CompilerFactory.getCompiler(validClassBar, cu);
+        compiler.compileAndRunTests();
+        CompilerResult result = compiler.getCompilerResult();
+        assertEquals(1, result.getCompilerErrors().size());
+    }
+
+    @Test
     public void runningValidTestOneTest_shouldNotResultInFailure() {
         JavaStringCompiler compiler = CompilerFactory.getCompiler(validClassBar,
                 succeedingTestClassWithSingleTestForBar);

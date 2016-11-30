@@ -343,6 +343,59 @@ public class InternalCompiler implements JavaStringCompiler {
                 }
             }
 
+            Collection<CompilationUnit> cus = compilationUnits.values();
+            for (CompilationUnit unit : cus) {
+                if (unit.getClassContent().trim().isEmpty()) {
+                    result.addProblem(unit, new Diagnostic<JavaFileObject>() {
+
+                        @Override
+                        public javax.tools.Diagnostic.Kind getKind() {
+                            return Kind.ERROR;
+                        }
+
+                        @Override
+                        public JavaFileObject getSource() {
+                            return null;
+                        }
+
+                        @Override
+                        public long getPosition() {
+                            return 0;
+                        }
+
+                        @Override
+                        public long getStartPosition() {
+                            return 0;
+                        }
+
+                        @Override
+                        public long getEndPosition() {
+                            return 0;
+                        }
+
+                        @Override
+                        public long getLineNumber() {
+                            return 1;
+                        }
+
+                        @Override
+                        public long getColumnNumber() {
+                            return 0;
+                        }
+
+                        @Override
+                        public String getCode() {
+                            return "<empty>";
+                        }
+
+                        @Override
+                        public String getMessage(Locale locale) {
+                            return "The class must not be empty.";
+                        }
+                    });
+                }
+            }
+
         } catch (IOException e) {
             throw new RuntimeException("Problem closing FileManager", e);
         }
